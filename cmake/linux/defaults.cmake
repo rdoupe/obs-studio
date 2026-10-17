@@ -19,6 +19,8 @@ if(ENABLE_RELOCATABLE)
   set(OBS_EXECUTABLE_RPATH "$ORIGIN/;$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
   set(OBS_LIBRARY_RPATH "$ORIGIN/")
   set(OBS_MODULE_RPATH "$ORIGIN/;$ORIGIN/..")
+  # libobs/util/curl/curl-helper.h: verify HTTPS peers with the host's CA bundle
+  add_compile_definitions(ENABLE_RELOCATABLE)
 endif()
 
 set(OBS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/rundir")

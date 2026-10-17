@@ -72,6 +72,7 @@ void RemoteTextThread::run()
 		curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, string_write);
 		curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &str);
 		curl_obs_set_revoke_setting(curl.get());
+		curl_obs_set_ca_bundle(curl.get());
 
 		if (timeoutSec) {
 			curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT, timeoutSec);
@@ -157,6 +158,7 @@ bool GetRemoteFile(const char *url, std::string &str, std::string &error, long *
 		curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, string_write);
 		curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &str);
 		curl_obs_set_revoke_setting(curl.get());
+		curl_obs_set_ca_bundle(curl.get());
 
 		if (signature) {
 			curl_easy_setopt(curl.get(), CURLOPT_HEADERFUNCTION, header_write);

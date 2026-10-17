@@ -33,3 +33,25 @@
 #define curl_obs_set_revoke_setting(handle)
 
 #endif
+
+#ifdef ENABLE_RELOCATABLE
+
+#include <stdlib.h>
+
+/* A relocatable build (the AppImage) carries a libcurl from the distribution
+ * it was built on, which looks for that distribution's CA bundle only. Its
+ * launcher names the host's bundle in SSL_CERT_FILE: verify peers with that. */
+static inline void curl_obs_set_ca_bundle(CURL *handle)
+{
+	const char *bundle = getenv("SSL_CERT_FILE");
+
+	if (bundle && *bundle) {
+		curl_easy_setopt(handle, CURLOPT_CAINFO, bundle);
+	}
+}
+
+#else
+
+#define curl_obs_set_ca_bundle(handle)
+
+#endif

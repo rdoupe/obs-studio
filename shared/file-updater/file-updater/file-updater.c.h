@@ -111,6 +111,7 @@ static bool do_http_request(struct update_info *info, const char *url, long *res
 	curl_easy_setopt(info->curl, CURLOPT_NOSIGNAL, 1L);
 	curl_easy_setopt(info->curl, CURLOPT_ACCEPT_ENCODING, "");
 	curl_obs_set_revoke_setting(info->curl);
+	curl_obs_set_ca_bundle(info->curl);
 
 	if (!info->remote_url) {
 		// We only care about headers from the main package file

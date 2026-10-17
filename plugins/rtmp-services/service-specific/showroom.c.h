@@ -109,6 +109,7 @@ struct showroom_ingest *showroom_get_ingest(const char *server, const char *acce
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, showroom_write_cb);
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&json);
 	curl_obs_set_revoke_setting(curl_handle);
+	curl_obs_set_ca_bundle(curl_handle);
 
 	res = curl_easy_perform(curl_handle);
 	dstr_free(&uri);

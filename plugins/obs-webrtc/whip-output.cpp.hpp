@@ -429,6 +429,7 @@ bool WHIPOutput::Connect()
 	curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(c, CURLOPT_UNRESTRICTED_AUTH, 1L);
 	curl_easy_setopt(c, CURLOPT_ERRORBUFFER, error_buffer);
+	curl_obs_set_ca_bundle(c);
 
 	auto doCleanup = [&](bool connectFailed) {
 		curl_easy_cleanup(c);
@@ -633,6 +634,7 @@ void WHIPOutput::SendDelete()
 	curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, "DELETE");
 	curl_easy_setopt(c, CURLOPT_TIMEOUT, 8L);
 	curl_easy_setopt(c, CURLOPT_ERRORBUFFER, error_buffer);
+	curl_obs_set_ca_bundle(c);
 
 	auto doCleanup = [&]() {
 		curl_easy_cleanup(c);

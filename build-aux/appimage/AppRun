@@ -183,7 +183,9 @@ if [ -z "${VK_DRIVER_FILES:-}" ] && [ -z "${VK_ICD_FILENAMES:-}" ]; then
 fi
 # gconv modules belong to the glibc that runs them
 [ "$MODE" = host ] && unset GCONV_PATH
-# Host certificate bundles live in different places per distribution.
+# Host certificate bundles live in different places per distribution. OpenSSL
+# reads SSL_CERT_FILE, and OBS hands it to libcurl for every request: the
+# bundled libcurl only knows its build distribution's path (#1085).
 if [ -z "$SSL_CERT_FILE" ]; then
     for f in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
         /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /etc/ssl/ca-bundle.pem /etc/ssl/cert.pem; do
