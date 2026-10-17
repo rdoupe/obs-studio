@@ -24,7 +24,8 @@
 #      camera (through a fake Camera portal) and a PulseAudio microphone, all
 #      fed by test producers, and records them. It must stay up, map PipeWire,
 #      PulseAudio and GLib from the AppImage, load every module it ships, and
-#      start every source. It must load no plugin from the host's system
+#      start every source, and its HTTPS services update must verify against
+#      the host's CA bundle. It must load no plugin from the host's system
 #      plugin directories, where a distribution's OBS keeps its own, and must
 #      load the plugins in the user's folders. The recording is left in
 #      <output-dir> for verify-recording.sh. (Every continuous build before
@@ -203,7 +204,7 @@ case "${ID_LIKE:-} ${ID}" in
         >/etc/apt/apt.conf.d/99keep
     apt-get update -qq
     apt-get install -y -qq --no-install-recommends \
-        ca-certificates xvfb icewm x11-utils imagemagick fonts-dejavu-core gdb procps dbus diffutils \
+        ca-certificates openssl xvfb icewm x11-utils imagemagick fonts-dejavu-core gdb procps dbus diffutils \
         libgl1-mesa-dri libglx-mesa0 libegl-mesa0 libgl1 libegl1 libgbm1 libdrm2 libva2 libva-drm2 libva-x11-2 libopengl0 \
         libwayland-client0 libwayland-egl1 libvulkan1 >/dev/null
     # HOSTILE_QT=1: a host that has its own, different Qt plugins - the usual desktop - which
@@ -224,7 +225,7 @@ case "${ID_LIKE:-} ${ID}" in
             dnf config-manager --set-enabled crb >/dev/null 2>&1 || true
     fi
     dnf install -y -q --setopt=install_weak_deps=False --setopt=keepcache=1 \
-        xorg-x11-server-Xvfb icewm xwininfo xprop ImageMagick dbus-daemon diffutils \
+        xorg-x11-server-Xvfb icewm xwininfo xprop ImageMagick dbus-daemon diffutils openssl \
         dejavu-sans-fonts gdb procps-ng mesa-dri-drivers mesa-libGL mesa-libEGL mesa-libgbm libdrm libva \
         libglvnd-glx libglvnd-egl libglvnd-opengl libwayland-client libwayland-egl vulkan-loader >/dev/null
     ;;
@@ -234,7 +235,7 @@ case "${ID_LIKE:-} ${ID}" in
     # built with, and its Mesa (libgallium -> libLLVM) needs that newer glibc
     # and libstdc++ (obs-rust/obs-studio#621).
     pacman -Syu --noconfirm --needed \
-        xorg-server-xvfb icewm xorg-xwininfo xorg-xprop imagemagick ttf-dejavu gdb procps-ng dbus diffutils \
+        xorg-server-xvfb icewm xorg-xwininfo xorg-xprop imagemagick ttf-dejavu gdb procps-ng dbus diffutils openssl \
         mesa libglvnd libdrm libva wayland vulkan-icd-loader >/dev/null
     ;;
 *)
@@ -1017,6 +1018,53 @@ else
 fi
 source_snapshot >"$OUT/upstream-before.txt"
 
+# HTTPS with certificate verification against this host's CA bundle
+# (obs-rust/obs-studio#1085). The bundled libcurl comes from the build image's
+# distribution and only knows that distribution's bundle path. On every start,
+# rtmp-services asks https://obsproject.com/ for a services update. Here that
+# name is this machine, whose certificate is signed by a test CA added to the
+# host's own bundle. The package it serves is one version newer and lists no
+# files, so OBS logs the update and changes nothing else.
+HTTPS_NAME=obsproject.com
+HOST_CA_BUNDLE=""
+for f in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/ca-bundle.pem; do
+    [ -r "$f" ] && { HOST_CA_BUNDLE="$(realpath "$f")"; break; }
+done
+SERVICES_PACKAGE="$(find "$PACKAGE_DATA" -path '*/rtmp-services/package.json' -print -quit)"
+SERVICES_VERSION=""
+[ -n "$SERVICES_PACKAGE" ] &&
+    SERVICES_VERSION="$(sed -n '/^[[:space:]]*"version":/{s/[^0-9]*\([0-9][0-9]*\).*/\1/p;q}' "$SERVICES_PACKAGE")"
+if [ -z "$HOST_CA_BUNDLE" ]; then
+    fail "this host has none of the CA bundles the HTTPS check adds its test CA to"
+elif [ -z "$SERVICES_VERSION" ]; then
+    fail "the AppImage has no rtmp-services package.json with a version"
+else
+    TLS="$PWD/tls"
+    mkdir -p "$TLS/www/obs2_update/rtmp-services/v5"
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 2 \
+        -subj "/CN=OBS AppImage test CA" -addext basicConstraints=critical,CA:TRUE \
+        -addext keyUsage=critical,keyCertSign,cRLSign -keyout "$TLS/ca.key" -out "$TLS/ca.pem" 2>/dev/null
+    openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -subj "/CN=$HTTPS_NAME" \
+        -keyout "$TLS/server.key" -out "$TLS/server.csr" 2>/dev/null
+    printf 'subjectAltName=DNS:%s\nbasicConstraints=CA:FALSE\nextendedKeyUsage=serverAuth\n' "$HTTPS_NAME" >"$TLS/server.ext"
+    openssl x509 -req -in "$TLS/server.csr" -CA "$TLS/ca.pem" -CAkey "$TLS/ca.key" -CAcreateserial \
+        -days 2 -extfile "$TLS/server.ext" -out "$TLS/server.pem" 2>/dev/null
+    cat "$TLS/ca.pem" >>"$HOST_CA_BUNDLE"
+    echo "127.0.0.1 $HTTPS_NAME" >>/etc/hosts
+    HTTPS_VERSION=$((SERVICES_VERSION + 1))
+    printf '{"version": %d, "url": "https://%s/obs2_update/rtmp-services/v5", "files": []}\n' \
+        "$HTTPS_VERSION" "$HTTPS_NAME" >"$TLS/www/obs2_update/rtmp-services/v5/package.json"
+    (cd "$TLS/www" && exec openssl s_server -accept 443 -cert "$TLS/server.pem" -key "$TLS/server.key" -WWW \
+        </dev/null >"$OUT/https-server.log" 2>&1) &
+    OWN_PIDS+=($!)
+    # (listening on port 443 = 01BB in /proc/net/tcp*, state 0A)
+    for _ in $(seq 1 50); do
+        grep -qE '^ *[0-9]+: [0-9A-F]+:01BB [0-9A-F]+:0000 0A' /proc/net/tcp /proc/net/tcp6 2>/dev/null && break
+        sleep 0.1
+    done
+    echo "HTTPS check: test CA added to $HOST_CA_BUNDLE; $HTTPS_NAME serves rtmp-services package version $HTTPS_VERSION"
+fi
+
 require_no_obs_running
 LD_LIBRARY_PATH="$HOSTILE_LD" "$APPDIR/AppRun" --disable-shutdown-check --verbose \
     --profile Test --collection Test --startrecording >"$OUT/obs-profile-stdout.log" 2>&1 &
@@ -1111,6 +1159,12 @@ if [ -n "$LOG" ] && [ -n "$USER_PLUGIN_SOURCE" ]; then
     for m in "${USER_PLUGINS[@]}"; do
         grep -q " $m.so\$" <<<"$loaded_plugins" || fail "OBS did not load the plugin $m from the user's plugin folder"
     done
+fi
+if [ -n "$LOG" ] && [ -n "${HTTPS_VERSION:-}" ]; then
+    if ! grep -q "\[rtmp-services plugin\] Successfully updated package (version $HTTPS_VERSION)" "$LOG"; then
+        grep -A2 "Remote update of URL \"https://$HTTPS_NAME/" "$LOG" || true
+        fail "OBS's HTTPS request to $HTTPS_NAME, verified with the host's CA bundle, did not succeed (see above and $OUT/https-server.log)"
+    fi
 fi
 if [ -z "$LOG" ]; then
     fail "OBS with a saved profile wrote no log"

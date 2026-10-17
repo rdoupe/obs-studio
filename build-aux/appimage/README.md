@@ -146,7 +146,11 @@ with none of OBS's dependencies installed, and fails unless all of these pass:
    that no OBS can load sits in every system plugin directory a distribution
    OBS (or an installed OBS-Studio-Rust) uses, and OBS must not try to load
    it; copies of a bundled module in the user's plugin folders (current and
-   legacy layout) must load.
+   legacy layout) must load. The services update that rtmp-services fetches
+   over HTTPS on every start must succeed with certificate verification
+   against the host's own CA bundle: `obsproject.com` points at a local
+   `openssl s_server` whose certificate is signed by a test CA that was added
+   to that bundle.
 
 The release job publishes only after the tests pass on every distribution.
 
