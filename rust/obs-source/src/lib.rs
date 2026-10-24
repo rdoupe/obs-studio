@@ -15,6 +15,9 @@
 //! `libobs/obs-source-deinterlace-pacing.c.h`, the frame pacing of
 //! double-rate deinterlacing; `libobs/obs-source-ptm-gate.c.h`, the
 //! push-to-mute and push-to-talk gate of `source_muted()`;
+//! `libobs/obs-source-render-route.c.h`, the source and filter render
+//! routing (which draw a source or a filter takes, the filter bypass, the
+//! default effect and the linear sRGB flags);
 //! `libobs/obs-source-size.c.h`, the size query routing of
 //! `obs_source_get_width()` and `obs_source_get_height()`;
 //! `libobs/obs-source-transition-clock.c.h`, the clock and fit decisions of
@@ -25,7 +28,7 @@
 //!
 //! The safe cores are [`async_pacing`], [`audio_input`], [`audio_timing`],
 //! [`color_space`], [`conversion_plan`], [`deinterlace_draw`],
-//! [`deinterlace_pacing`], [`ptm_gate`], [`size_route`],
+//! [`deinterlace_pacing`], [`ptm_gate`], [`render_route`], [`size_route`],
 //! [`transition_clock`], [`transition_render`] and [`volume_apply`]. The C
 //! ABI shims live in [`ffi`].
 
