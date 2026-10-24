@@ -2803,6 +2803,29 @@
         "OBS::native-test-cmocka"
       ]
     },
+    "test_source_render_route_steps": {
+      "sources": [
+        "test/cmocka/test_source_render_route_steps.c",
+        "libobs/obs-source-render-route.c.h"
+      ],
+      "includes": [
+        "libobs",
+        "deps/libcaption"
+      ],
+      "libraries": [
+        "OBS::libobs",
+        "OBS::caption",
+        "Uthash::Uthash",
+        {
+          "name": "m",
+          "requires": {
+            "not": "MSVC"
+          }
+        },
+        "OBS::native-test-cmocka"
+      ],
+      "sanitizers": "address,undefined"
+    },
     "test_source_size_route_steps": {
       "sources": [
         "test/cmocka/test_source_size_route_steps.c",
@@ -4614,6 +4637,12 @@
           "-s",
           "-screen 0 1280x1024x24 -noreset"
         ]
+      ]
+    },
+    "test_source_render_route_steps": {
+      "target": "test_source_render_route_steps",
+      "command": [
+        "${target}"
       ]
     },
     "test_source_size_route_steps": {
