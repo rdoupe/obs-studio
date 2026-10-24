@@ -39,6 +39,7 @@ pub mod conversion_plan;
 pub mod deinterlace_draw;
 pub mod deinterlace_pacing;
 pub mod ptm_gate;
+pub mod render_route;
 pub mod size_route;
 pub mod transition_clock;
 pub mod transition_render;
